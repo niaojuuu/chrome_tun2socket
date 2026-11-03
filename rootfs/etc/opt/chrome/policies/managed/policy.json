@@ -1,0 +1,10 @@
+{
+  "QuicAllowed": false,
+  "WebRtcIPHandling": "default_public_interface_only",
+  "DefaultBrowserSettingEnabled": false,
+  "MetricsReportingEnabled": false,
+  "BackgroundModeEnabled": false,
+  "PasswordManagerEnabled": false,
+  "PromotionalTabsEnabled": false,
+  "PrivacySandboxPromptEnabled": false
+}

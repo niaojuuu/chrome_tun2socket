@@ -1,0 +1,75 @@
+<!doctype html><meta charset="utf-8"><title>fingerprint check</title>
+<body><pre id="o">running...</pre>
+<script>
+// 采集常见指纹项 + 检查上一次会话留下的痕迹，结果 POST 回本地 fp_server.py
+const sha = async s => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))]
+  .map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 16);
+const idb = () => new Promise((res, rej) => { const q = indexedDB.open('fpdb', 1);
+  q.onupgradeneeded = () => q.result.createObjectStore('s'); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+const idbGet = async () => { const db = await idb(); return new Promise(r => { const t = db.transaction('s').objectStore('s').get('m');
+  t.onsuccess = () => r(t.result || null); t.onerror = () => r(null); }); };
+const idbSet = async v => { const db = await idb(); return new Promise(r => { const t = db.transaction('s', 'readwrite');
+  t.objectStore('s').put(v, 'm'); t.oncomplete = r; }); };
+
+(async () => {
+  const st = {}, fp = {};
+  // ---- 上次会话的痕迹（全新会话应全部为 null / false）
+  st.localStorage = localStorage.getItem('fp_marker');
+  st.cookie = (document.cookie.match(/fp_marker=([^;]+)/) || [])[1] || null;
+  st.indexedDB = await idbGet();
+  st.httpCache = (await (await fetch('/cache-probe')).text()) === 'revalidated';
+  const m = Math.random().toString(36).slice(2, 10);
+  localStorage.setItem('fp_marker', m); document.cookie = `fp_marker=${m}; max-age=31536000; path=/`; await idbSet(m);
+
+  // ---- 环境指纹
+  fp.userAgent = navigator.userAgent;
+  fp.languages = navigator.languages.join(',');
+  fp.locale = Intl.DateTimeFormat().resolvedOptions().locale;
+  fp.acceptLanguage = await (await fetch('/accept-language')).text();
+  fp.dateString = new Date(0).toString();
+  fp.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  fp.screen = `${screen.width}x${screen.height} avail ${screen.availWidth}x${screen.availHeight} dpr ${devicePixelRatio}`;
+  fp.window = `${outerWidth}x${outerHeight}`;
+  fp.hardwareConcurrency = navigator.hardwareConcurrency;
+  fp.deviceMemory = navigator.deviceMemory;
+
+  const c = document.createElement('canvas'); c.width = 300; c.height = 70; const x = c.getContext('2d');
+  x.textBaseline = 'top'; x.font = '16px Arial'; x.fillStyle = '#f60'; x.fillRect(100, 1, 62, 20);
+  x.fillStyle = '#069'; x.fillText('Fingerprint 指纹 😀 ÆØ', 2, 15);
+  x.fillStyle = 'rgba(102,204,0,0.7)'; x.font = '18px serif';
+  x.font = '14px sans-serif'; x.fillText('sans 默认字体 Quick brown fox', 150, 50); x.font = '18px serif'; x.fillText('Cwm fjordbank glyphs vext quiz', 4, 40);
+  x.beginPath(); x.arc(50, 50, 20, 0, Math.PI * 2); x.stroke();
+  fp.canvas = await sha(c.toDataURL());
+
+  try {
+    const g = document.createElement('canvas').getContext('webgl');
+    const d = g.getExtension('WEBGL_debug_renderer_info');
+    fp.webglRenderer = g.getParameter(d.UNMASKED_RENDERER_WEBGL);
+    fp.webglParams = await sha(JSON.stringify([g.getSupportedExtensions(), g.getParameter(g.MAX_TEXTURE_SIZE)]));
+  } catch (e) { fp.webglRenderer = 'error: ' + e; }
+
+  try {
+    const a = new OfflineAudioContext(1, 5000, 44100), o = a.createOscillator(), k = a.createDynamicsCompressor();
+    o.type = 'triangle'; o.frequency.value = 10000; o.connect(k); k.connect(a.destination); o.start(0);
+    const buf = (await a.startRendering()).getChannelData(0); let s = 0;
+    for (let i = 4500; i < 5000; i++) s += Math.abs(buf[i]);
+    fp.audio = s.toString();
+  } catch (e) { fp.audio = 'error'; }
+
+  const span = document.createElement('span'); span.textContent = 'mmmmmmmmmmlli 你好';
+  span.style.cssText = 'position:absolute;left:-9999px;font-size:72px'; document.body.appendChild(span);
+  const bases = ['monospace', 'serif', 'sans-serif'], base = {};
+  for (const b of bases) { span.style.fontFamily = b; base[b] = span.offsetWidth + 'x' + span.offsetHeight; }
+  fp.fonts = ['Arial', 'Times New Roman', 'Courier New', 'Helvetica', 'Calibri', 'Cambria', 'Segoe UI',
+    'Microsoft YaHei', 'PingFang SC', 'DejaVu Sans', 'DejaVu Serif', 'Liberation Sans', 'FreeSans', 'Cantarell',
+    'Open Sans', 'Lato', 'Roboto', 'Nimbus Sans', 'URW Gothic', 'C059', 'Noto Sans CJK SC', 'Noto Sans CJK TC',
+    'Noto Sans CJK JP', 'Noto Sans CJK KR', 'Noto Sans CJK HK', 'Noto Color Emoji']
+    .filter(f => bases.some(b => { span.style.fontFamily = `"${f}",${b}`; return span.offsetWidth + 'x' + span.offsetHeight !== base[b]; }))
+    .join(',');
+
+  fp._combinedHash = await sha(JSON.stringify(fp));
+  const out = { previousSessionTraces: st, fingerprint: fp };
+  document.getElementById('o').textContent = JSON.stringify(out, null, 2);
+  await fetch('/report', { method: 'POST', body: JSON.stringify(out) });
+})();
+</script>

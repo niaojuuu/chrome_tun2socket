@@ -1,0 +1,41 @@
+# 用法：
+#   cp .env.example .env && vi .env
+#   docker compose up -d --build
+#   docker compose restart browser1     # 重启 = 全新会话
+#
+# 增加实例：复制 browser1 段落，改名字、端口和 PROXY 即可
+
+x-browser: &browser
+  image: chrome-tun2socks:latest
+  build: .
+  restart: unless-stopped
+  cap_add: [NET_ADMIN]
+  devices: ["/dev/net/tun:/dev/net/tun"]
+  security_opt: ["seccomp=unconfined"]   # 让 Chrome 自带沙箱可用；去掉则自动降级为 --no-sandbox
+  sysctls:
+    net.ipv6.conf.all.disable_ipv6: 1
+    net.ipv6.conf.default.disable_ipv6: 1
+  shm_size: 2g
+  # 使用 Docker 默认网桥（docker0）。部分环境（如 Docker-in-Docker）只给 docker0 配了 NAT，
+  # compose 自建网络会无法出网；实例之间也不需要互通
+  network_mode: bridge
+
+services:
+  browser1:
+    <<: *browser
+    ports: ["${BIND_ADDR:-0.0.0.0}:${PORT1:-6081}:6080"]
+    environment:
+      PROXY: ${PROXY1:?请在 .env 中设置 PROXY1}
+      VNC_PASSWORD: ${VNC_PASSWORD:-}
+      TZ: ${TZ:-Etc/UTC}
+      LANGUAGE: ${LANGUAGE:-en_US:en}
+      RESOLUTION: ${RESOLUTION:-random}
+      START_URL: ${START_URL:-https://ipinfo.io/json}
+
+  # browser2:
+  #   <<: *browser
+  #   ports: ["${BIND_ADDR:-0.0.0.0}:6082:6080"]
+  #   environment:
+  #     PROXY: ${PROXY2}
+  #     VNC_PASSWORD: ${VNC_PASSWORD:-}
+  #     LANGUAGE: auto

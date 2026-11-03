@@ -1,0 +1,6 @@
+.git
+.env
+*.md
+run.sh
+docker-compose.yml
+tests
