@@ -25,7 +25,7 @@ services:
     <<: *browser
     ports: ["${BIND_ADDR:-0.0.0.0}:${PORT1:-6081}:6080"]
     environment:
-      PROXY: ${PROXY1:?请在 .env 中设置 PROXY1}
+      PROXY: ${PROXY1:-}
       VNC_PASSWORD: ${VNC_PASSWORD:-}
       TZ: ${TZ:-Etc/UTC}
       LANGUAGE: ${LANGUAGE:-en_US:en}

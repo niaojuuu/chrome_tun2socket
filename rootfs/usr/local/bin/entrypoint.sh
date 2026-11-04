@@ -2,7 +2,7 @@
 # 容器启动入口：
 #   1. 清空浏览器用户目录和临时目录（保证每次启动都是全新状态，无上次会话痕迹）
 #   2. 生成本次会话的随机画像（分辨率 / CPU 核数 / 字体），让每次会话的指纹不同
-#   3. 配置 tun0 + 策略路由，把所有出站流量交给 tun2socks（$PROXY）
+#   3. 配置 tun0 + 策略路由，把所有出站流量交给 tun2socks（$PROXY，留空 = 直连不经过代理）
 #   4. 启动 supervisord（tun2socks / Xvnc / openbox / chrome / noVNC）
 set -euo pipefail
 
@@ -15,7 +15,12 @@ FWMARK=0x22b       # tun2socks 自身流量打的标记
 BYPASS_TABLE=100   # 走 eth0 的路由表
 NOVNC_PORT=6080    # 容器内 noVNC 端口（与 supervisor 配置一致）
 
-[ -n "${PROXY:-}" ] || die "PROXY 未设置，例如 -e PROXY=socks5://user:pass@1.2.3.4:1080"
+PROXY=${PROXY:-}
+if [ -z "$PROXY" ]; then
+  # 不配代理 = 直连：流量照样走 tun0 → tun2socks，只是上游不连外部代理
+  PROXY="direct://"
+  log "未设置 PROXY，直连模式（不经过外部代理）"
+fi
 [ -c /dev/net/tun ] || die "/dev/net/tun 不存在，请加 --device /dev/net/tun"
 DNS=${DNS:-1.1.1.1,8.8.8.8}
 DNS_OVER_TCP=${DNS_OVER_TCP:-1}

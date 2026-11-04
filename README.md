@@ -1,7 +1,7 @@
 # chrome-tun2socks：阿里云 ECS 上的一次性 Chrome 容器
 
 - **Google Chrome**：在本地浏览器里打开 `http://ECS公网IP:端口/` 即可使用（noVNC，不需要装客户端）
-- **启动时指定代理**：`PROXY=socks5://...`，容器内由 tun2socks 接管**全部流量**（TCP/UDP/DNS），而不只是给浏览器设置代理
+- **启动时指定代理**：`PROXY=socks5://...`，容器内由 tun2socks 接管**全部流量**（TCP/UDP/DNS），而不只是给浏览器设置代理。**代理可以省略**：留空 = 直连模式，容器照常启动，出口 IP 就是 ECS 自己的公网 IP
 - **每次启动都是全新的**：无论是 `docker restart`、ECS 重启还是重建容器，浏览记录、Cookie、缓存都会被清空
 - **每次启动指纹都不同**：屏幕、CPU 核数、字体、Canvas 每次随机；时区和语言默认固定为 `Etc/UTC`、美国英语（详见「四、防关联」）
 
@@ -93,6 +93,8 @@ docker build --build-arg APT_MIRROR=mirrors.aliyun.com -t chrome-tun2socks:lates
 ./run.sh start shop1 6081 'socks5://user:pass@1.2.3.4:1080' Pass1234
 ./run.sh start shop2 6082 'http://user:pass@5.6.7.8:8080'  Pass5678
 TZ=America/Los_Angeles ./run.sh start us1 6083 'socks5://...' Pass0000
+./run.sh start plain1 6084                    # 不配代理 = 直连（出口 IP 就是 ECS 的 IP）
+./run.sh start plain2 6085 direct Pass5678     # 同上，direct 等价于省略
 
 ./run.sh list               # 查看所有实例
 ./run.sh restart shop1      # 重启 = 全新会话
@@ -103,7 +105,7 @@ TZ=America/Los_Angeles ./run.sh start us1 6083 'socks5://...' Pass0000
 **方式 B：docker compose**
 
 ```bash
-cp .env.example .env && vi .env      # 填写 PROXY1、VNC_PASSWORD
+cp .env.example .env && vi .env      # 填写 PROXY1、VNC_PASSWORD（PROXY1 留空 = 直连）
 docker compose up -d --build
 docker compose restart browser1      # 全新会话
 ```
@@ -119,9 +121,9 @@ Chrome 启动时会打开 `START_URL` 里的网址，默认是三个标签页，
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `PROXY` | **必填** | tun2socks 代理地址：`socks5://u:p@host:port`、`http://...`、`ss://method:pass@host:port`、`socks4://...`。密码中的特殊字符需要 URL 编码（`@`→`%40`、`:`→`%3A`）。域名会在启动时解析。地址中的 `{SESSION}` 会在每次启动时替换为新的随机串 |
+| `PROXY` | 空（直连） | 代理地址：`socks5://u:p@host:port`、`http://...`、`ss://method:pass@host:port`、`socks4://...`。**留空或填 `direct://` 就是直连模式**：容器照常启动，出站流量不经过任何外部代理，出口 IP 就是 ECS 自己的公网 IP。密码中的特殊字符需要 URL 编码（`@`→`%40`、`:`→`%3A`）。域名会在启动时解析。地址中的 `{SESSION}` 会在每次启动时替换为新的随机串 |
 | `VNC_PASSWORD` | 随机 | 只有前 8 位有效。留空时每次启动随机生成，并打印到 `docker logs`；设为 `none` 表示不设密码（仅在使用 SSH 隧道时这样做） |
-| `TZ` | `Etc/UTC` | 容器和 Chrome 的时区。可以改成其他时区，如 `America/New_York`；`auto` = 经代理查询出口 IP 所在地并自动匹配 |
+| `TZ` | `Etc/UTC` | 容器和 Chrome 的时区。可以改成其他时区，如 `America/New_York`；`auto` = 查询出口 IP 所在地并自动匹配 |
 | `LANGUAGE` | `en_US:en` | Chrome 界面语言和 Accept-Language，默认美国英语；中文用 `zh_CN:zh`；`auto` = 跟随出口 IP 所在国家 |
 | `RESOLUTION` | `random` | 每次会话从常见分辨率中随机选取；也可以写死，如 `1920x1080`。noVNC 会在本地缩放显示 |
 | `CPUS` | `random` | 网页看到的 CPU 核数（`navigator.hardwareConcurrency`），从 2/4/6/8… 中随机选取，不超过宿主机的核数；也可以写死，如 `4`，或设为 `all` |
@@ -175,6 +177,11 @@ Chrome 启动时会打开 `START_URL` 里的网址，默认是三个标签页，
 - **fail-closed**：代理断开或 tun2socks 崩溃时网络直接不通，不会退回直连而暴露 ECS 的 IP
 - DNS 改为公共 DNS，并通过代理以 TCP 方式查询；IPv6 已关闭；Chrome 策略关闭了 QUIC（避免依赖 UDP），WebRTC 只使用默认路由所在的网卡
 
+**直连模式（不配代理）**
+- `PROXY` 留空时，入口脚本把上游换成 `direct://`：tun0、策略路由、fail-closed、DNS（公共 DNS，强制 TCP）全部照常，只是 tun2socks 不再连接外部代理服务器，流量直接从 ECS 出去
+- 出口 IP 就是 ECS 的公网 IP。代理那套「防泄露」在这个模式下没有意义（本来就是要用自己的 IP），但也意味着 IP 一定会被目标网站看到
+- 适合不需要代理出口的场景：只想开一个干净、用完即弃的浏览器容器
+
 **Chrome 沙箱**
 - 默认以 `--security-opt seccomp=unconfined` 运行，这样 Chrome 自带的沙箱（user namespace + seccomp-bpf）可以生效。对于访问任意网站的浏览器来说，这比 Docker 的默认 seccomp 更重要
 - 如果不加这个选项（`SANDBOX=0 ./run.sh ...`），或者宿主机禁止 user namespace，Chrome 会自动降级为 `--no-sandbox` 运行，日志中会给出提示
@@ -184,6 +191,7 @@ Chrome 启动时会打开 `START_URL` 里的网址，默认是三个标签页，
 
 ## 六、常见问题
 
+- **不配代理地址能启动吗？** 能，`PROXY` 现在是可选的。`./run.sh start 名字 端口`（或 `docker run` 不带 `-e PROXY`）就是直连模式：容器照常启动、出网正常，出口 IP 是 ECS 自己的公网 IP，不再经过任何代理服务器
 - **能复制粘贴吗？** 文字可以，本地和远端 Chrome 之间直接用 Ctrl+C / Ctrl+V（macOS 粘贴用 Cmd+V，复制用 Ctrl+C），单次上限 10MB。VNC 协议只能传纯文字，**图片、文件和 Word 里的格式传不过去**。为了防止远端网页在后台改写你电脑的剪贴板，只有在你按下复制键或点击鼠标后的 3 秒内，远端内容才会写回本地；其他时候内容只显示在 noVNC 左侧的「剪贴板」面板里。
 - **粘贴账号密码安全吗？** 不要在 `http://ECS公网IP:端口` 这种普通 HTTP 地址上输入或粘贴密码：noVNC 的连接没有加密，VNC 密码只保护登录这一步，之后的屏幕画面、键盘输入和剪贴板内容都是明文传输，途中可以被窃听。请改用 SSH 隧道或 HTTPS（见下面「想要 HTTPS 访问？」）。
 - **怎么输入中文？** noVNC 无法使用本地电脑的输入法。可以在本地打好字，再 Ctrl+V 粘贴进去。
