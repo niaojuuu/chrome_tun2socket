@@ -111,7 +111,7 @@ docker compose restart browser1      # 全新会话
 ### 5. 使用
 
 在本地浏览器打开 `http://ECS公网IP:6081/`，输入 VNC 密码，就能看到已经打开的 Chrome。
-默认首页是 `https://ipinfo.io/json`，可以直接核对出口 IP 是否是代理的 IP。关掉 Chrome 窗口后它会自动重新打开。
+Chrome 启动时会打开 `START_URL` 里的网址，默认是三个标签页，其中 `https://ipinfo.io/json` 可以用来核对出口 IP 是否是代理的 IP。关掉 Chrome 窗口后它会自动重新打开。
 
 ---
 
@@ -126,7 +126,7 @@ docker compose restart browser1      # 全新会话
 | `RESOLUTION` | `random` | 每次会话从常见分辨率中随机选取；也可以写死，如 `1920x1080`。noVNC 会在本地缩放显示 |
 | `CPUS` | `random` | 网页看到的 CPU 核数（`navigator.hardwareConcurrency`），从 2/4/6/8… 中随机选取，不超过宿主机的核数；也可以写死，如 `4`，或设为 `all` |
 | `FONTS` | `random` | 每次会话随机启用字体池的一部分，并随机选择字体微调方式（影响字体列表和 Canvas 指纹）；`system` = 不做随机 |
-| `START_URL` | `https://ipinfo.io/json` | Chrome 的首页 |
+| `START_URL` | `https://claude.ai/login https://jjyycccai.cn https://ipinfo.io/json` | Chrome 启动时打开的网址，多个用空格分隔，每个一个标签页 |
 | `DNS` | `1.1.1.1,8.8.8.8` | 经由代理访问的 DNS 服务器 |
 | `DNS_OVER_TCP` | `1` | 通过 TCP 查询 DNS，兼容不支持 UDP 的 socks5 代理 |
 | `BYPASS_CIDRS` | 空 | 不走代理的网段，逗号分隔，例如 VPC 内网 `172.16.0.0/12` |

@@ -24,7 +24,7 @@ start() { # 名字 首页 [docker 额外参数...]
     -e PROXY=direct:// -e TZ=UTC -e RESOLUTION=1280x720 -e VNC_PASSWORD=$PW -e FONTS=system -e CPUS=all \
     -e START_URL="$url" "$IMG" >/dev/null
 }
-start "$R" "data:text/html;charset=utf-8,<textarea autofocus style='width:98vw;height:90vh;font-size:18px'></textarea><input type=password oninput='document.title=\"PW:\"+this.value'>" -p "$PORT:6080"
+start "$R" "data:text/html;charset=utf-8,<textarea%20autofocus%20style='width:98vw;height:90vh;font-size:18px'></textarea><input%20type=password%20oninput='document.title=\"PW:\"+this.value'>" -p "$PORT:6080"
 start "$C" "about:blank"
 sleep 10
 # 对照实验：NO_BRIDGE=1 时去掉桥接（等于原版 noVNC），粘贴和复制两项应当失败

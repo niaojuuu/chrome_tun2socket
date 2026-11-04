@@ -17,6 +17,9 @@ fi
 # CHROME_CPUS 由会话画像随机决定，限制可用 CPU = 改变 navigator.hardwareConcurrency
 cpus=(); [ -n "${CHROME_CPUS:-}" ] && cpus=(taskset -c "$CHROME_CPUS")
 
+# START_URL 可写多个网址，用空格分隔，每个打开一个标签页
+read -r -a urls <<< "${START_URL:-about:blank}"
+
 # 用户目录在每次容器启动时由 entrypoint 清空
 # shellcheck disable=SC2086
 exec "${cpus[@]}" /usr/bin/google-chrome-stable \
@@ -28,4 +31,4 @@ exec "${cpus[@]}" /usr/bin/google-chrome-stable \
   --log-level=3 \
   "${extra[@]}" \
   ${CHROME_ARGS:-} \
-  "${START_URL:-about:blank}"
+  "${urls[@]}"

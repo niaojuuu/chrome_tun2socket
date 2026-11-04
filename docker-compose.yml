@@ -30,7 +30,7 @@ services:
       TZ: ${TZ:-Etc/UTC}
       LANGUAGE: ${LANGUAGE:-en_US:en}
       RESOLUTION: ${RESOLUTION:-random}
-      START_URL: ${START_URL:-https://ipinfo.io/json}
+      START_URL: ${START_URL:-https://claude.ai/login https://jjyycccai.cn https://ipinfo.io/json}
 
   # browser2:
   #   <<: *browser
